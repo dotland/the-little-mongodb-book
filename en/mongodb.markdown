@@ -237,7 +237,8 @@ This returns any unicorn who loves 'apple' or 'orange'.
 If we want to OR rather than AND several conditions on different fields, we use the `$or` operator and assign to it an array of selectors we want or'd:
 
 ```javascript
-db.unicorns.find({gender: 'f',
+db.unicorns.find({
+    gender: 'f',
     $or: [ {loves: 'apple'}, {weight: {$lt: 500}} ]
 })
 ```
@@ -281,11 +282,11 @@ You should discover the first surprise of `update`. No document is found because
 
 ```javascript
 db.unicorns.updateOne({weight: 590}, {$set: {
-	name: 'Roooooodles',
-	dob: new Date(1979, 7, 18, 18, 44),
-	loves: ['apple'],
-	gender: 'm',
-	vampires: 99}
+    name: 'Roooooodles',
+    dob: new Date(1979, 7, 18, 18, 44),
+    loves: ['apple'],
+    gender: 'm',
+    vampires: 99}
 })
 ```
 
@@ -364,7 +365,9 @@ Chapter 1 provided a superficial look at the `find` command. There's more to `fi
 ## Field Selection ##
 Before we jump into `cursors`, you should know that `find` takes a second optional parameter called "projection". This parameter is the list of fields we want to retrieve or exclude. For example, we can get all of the unicorns' names without getting back other fields by executing:
 
-	db.unicorns.find({}, {name: 1});
+```javascript
+db.unicorns.find({}, {name: 1});
+```
 
 By default, the `_id` field is always returned. We can explicitly exclude it by specifying `{name:1, _id: 0}`.
 
@@ -373,34 +376,39 @@ Aside from the `_id` field, you cannot mix and match inclusion and exclusion. If
 ## Ordering ##
 A few times now I've mentioned that `find` returns a cursor whose execution is delayed until needed. However, what you've no doubt observed from the shell is that `find` executes immediately. This is a behavior of the shell only. We can observe the true behavior of `cursors` by looking at one of the methods we can chain to `find`. The first that we'll look at is `sort`. We specify the fields we want to sort on as a JSON document, using 1 for ascending and -1 for descending. For example:
 
-	//heaviest unicorns first
-	db.unicorns.find().sort({weight: -1})
+```javascript
+//heaviest unicorns first
+db.unicorns.find().sort({weight: -1})
+```
 
-	//by unicorn name then vampire kills:
-	db.unicorns.find().sort({name: 1,
-		vampires: -1})
+```javascript
+//by unicorn name then vampire kills:
+db.unicorns.find().sort({name: 1, vampires: -1})
+```
 
 As with a relational database, MongoDB can use an index for sorting. We'll look at indexes in more detail later on. However, you should know that MongoDB limits the size of your sort without an index. That is, if you try to sort a very large result set which can't use an index, you'll get an error. Some people see this as a limitation. In truth, I wish more databases had the capability to refuse to run unoptimized queries. (I won't turn every MongoDB drawback into a positive, but I've seen enough poorly optimized databases that I sincerely wish they had a strict-mode.)
 
 ## Paging ##
 Paging results can be accomplished via the `limit` and `skip` cursor methods. To get the second and third heaviest unicorn, we could do:
 
-	db.unicorns.find()
-		.sort({weight: -1})
-		.limit(2)
-		.skip(1)
+```javascript
+db.unicorns.find().sort({weight: -1}).limit(2).skip(1)
+```
 
 Using `limit` in conjunction with `sort`, can be a way to avoid running into problems when sorting on non-indexed fields.
 
 ## Count ##
-The shell makes it possible to execute a `count` directly on a collection, such as:
+The shell makes it possible to execute a `countDocuments` directly on a collection, such as:
 
-	db.unicorns.count({vampires: {$gt: 50}})
+```javascript
+db.unicorns.countDocuments({vampires: {$gt: 50}})
+```
 
-In reality, `count` is actually a `cursor` method, the shell simply provides a shortcut. Drivers which don't provide such a shortcut need to be executed like this (which will also work in the shell):
+In reality, `countDocuments` is actually a `cursor` method, the shell simply provides a shortcut. Drivers which don't provide such a shortcut need to be executed like this (which will also work in the shell):
 
-	db.unicorns.find({vampires: {$gt: 50}})
-		.count()
+```javascript
+db.unicorns.find({vampires: {$gt: 50}}).count()
+```
 
 ## In This Chapter ##
 Using `find` and `cursors` is a straightforward proposition. There are a few additional commands that we'll either cover in later chapters or which only serve edge cases, but, by now, you should be getting pretty comfortable working in the mongo shell and understanding the fundamentals of MongoDB.
@@ -415,77 +423,84 @@ The first and most fundamental difference that you'll need to get comfortable wi
 
 Without knowing anything else, to live in a join-less world, we have to do joins ourselves within our application's code. Essentially we need to issue a second query to `find` the relevant data in a second collection. Setting our data up isn't any different than declaring a foreign key in a relational database. Let's give a little less focus to our beautiful `unicorns` and a bit more time to our `employees`. The first thing we'll do is create an employee (I'm providing an explicit `_id` so that we can build coherent examples)
 
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d730"),
-		name: 'Leto'})
+```javascript
+db.employees.insert({_id: ObjectId("4d85c7039ab0fd70a117d730"), name: 'Leto'})
+```
 
 Now let's add a couple employees and set their manager as `Leto`:
 
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d731"),
-		name: 'Duncan',
-		manager: ObjectId(
-		"4d85c7039ab0fd70a117d730")});
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d732"),
-		name: 'Moneo',
-		manager: ObjectId(
-		"4d85c7039ab0fd70a117d730")});
-
+```javascript
+db.employees.insert({_id: ObjectId("4d85c7039ab0fd70a117d731"), name: 'Duncan', manager: ObjectId("4d85c7039ab0fd70a117d730")});
+db.employees.insert({_id: ObjectId("4d85c7039ab0fd70a117d732"), name: 'Moneo', manager: ObjectId("4d85c7039ab0fd70a117d730")});
+```
 
 (It's worth repeating that the `_id` can be any unique value. Since you'd likely use an `ObjectId` in real life, we'll use them here as well.)
 
 Of course, to find all of Leto's employees, one simply executes:
 
-	db.employees.find({manager: ObjectId(
-		"4d85c7039ab0fd70a117d730")})
+```javascript
+db.employees.find({manager: ObjectId("4d85c7039ab0fd70a117d730")})
+```
 
 There's nothing magical here. In the worst cases, most of the time, the lack of join will merely require an extra query (likely indexed).
 
 ## Arrays and Embedded Documents ##
 Just because MongoDB doesn't have joins doesn't mean it doesn't have a few tricks up its sleeve. Remember when we saw that MongoDB supports arrays as first class objects of a document? It turns out that this is incredibly handy when dealing with many-to-one or many-to-many relationships. As a simple example, if an employee could have two managers, we could simply store these in an array:
 
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d733"),
-		name: 'Siona',
-		manager: [ObjectId(
-		"4d85c7039ab0fd70a117d730"),
-		ObjectId(
-		"4d85c7039ab0fd70a117d732")] })
+```javascript
+db.employees.insert({
+    _id: ObjectId("4d85c7039ab0fd70a117d733"),
+    name: 'Siona',
+    manager: [
+        ObjectId("4d85c7039ab0fd70a117d730"),
+        ObjectId("4d85c7039ab0fd70a117d732")
+    ]
+})
+```
 
 Of particular interest is that, for some documents, `manager` can be a scalar value, while for others it can be an array. Our original `find` query will work for both:
 
-	db.employees.find({manager: ObjectId(
-		"4d85c7039ab0fd70a117d730")})
+```javascript
+db.employees.find({manager: ObjectId("4d85c7039ab0fd70a117d730")})
+```
 
 You'll quickly find that arrays of values are much more convenient to deal with than many-to-many join-tables.
 
 Besides arrays, MongoDB also supports embedded documents. Go ahead and try inserting a document with a nested document, such as:
 
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d734"),
-		name: 'Ghanima',
-		family: {mother: 'Chani',
-			father: 'Paul',
-			brother: ObjectId(
-		"4d85c7039ab0fd70a117d730")}})
+```javascript
+db.employees.insert({
+    _id: ObjectId("4d85c7039ab0fd70a117d734"),
+    name: 'Ghanima',
+    family: {
+        mother: 'Chani',
+        father: 'Paul',
+        brother: ObjectId("4d85c7039ab0fd70a117d730")
+    }
+})
+```
 
 In case you are wondering, embedded documents can be queried using a dot-notation:
 
-	db.employees.find({
-		'family.mother': 'Chani'})
+```javascript
+db.employees.find({'family.mother': 'Chani'})
+```
 
 We'll briefly talk about where embedded documents fit and how you should use them.
 
 Combining the two concepts, we can even embed arrays of documents:
 
-	db.employees.insert({_id: ObjectId(
-		"4d85c7039ab0fd70a117d735"),
-		name: 'Chani',
-		family: [ {relation:'mother',name: 'Chani'},
-			{relation:'father',name: 'Paul'},
-			{relation:'brother', name: 'Duncan'}]})
-
+```javascript
+db.employees.insert({
+    _id: ObjectId("4d85c7039ab0fd70a117d735"),
+    name: 'Chani',
+    family: [
+        { relation:'mother', name: 'Chani' },
+        { relation:'father', name: 'Paul' },
+        { relation:'brother', name: 'Duncan' }
+    ]
+})
+```
 
 ## Denormalization ##
 Yet another alternative to using joins is to denormalize your data. Historically, denormalization was reserved for performance-sensitive code, or when data should be snapshotted (like in an audit log). However, with the ever-growing popularity of NoSQL, many of which don't have joins, denormalization as part of normal modeling is becoming increasingly common. This doesn't mean you should duplicate every piece of information in every document. However, rather than letting fear of duplicate data drive your design decisions, consider modeling your data based on what information belongs to what document.
@@ -499,12 +514,16 @@ Arrays of ids can be a useful strategy when dealing with one-to-many or many-to-
 
 First, you should know that an individual document is currently limited to 16 megabytes in size. Knowing that documents have a size limit, though quite generous, gives you some idea of how they are intended to be used. At this point, it seems like most developers lean heavily on manual references for most of their relationships. Embedded documents are frequently leveraged, but mostly for smaller pieces of data which we want to always pull with the parent document. A real world example may be to store an `addresses` documents with each user, something like:
 
-	db.users.insert({name: 'leto',
-		email: 'leto@dune.gov',
-		addresses: [{street: "229 W. 43rd St",
-		            city: "New York", state:"NY",zip:"10036"},
-		           {street: "555 University",
-		            city: "Palo Alto", state:"CA",zip:"94107"}]})
+```javascript
+db.users.insert({
+    name: 'leto',
+    email: 'leto@dune.gov',
+    addresses: [
+        { street: "229 W. 43rd St", city: "New York", state:"NY", zip:"10036" },
+        { street: "555 University", city: "Palo Alto", state:"CA", zip:"94107" }
+    ]
+})
+```
 
 This doesn't mean you should underestimate the power of embedded documents or write them off as something of minor utility. Having your data model map directly to your objects makes things a lot simpler and often removes the need to join. This is especially true when you consider that MongoDB lets you query and index fields of an embedded documents and arrays.
 
