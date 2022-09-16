@@ -56,13 +56,17 @@ As you read through this, I encourage you to play with MongoDB to replicate what
 
 6. Launch mongod with the `--config /path/to/your/mongodb.config` parameter.
 
-As an example for Windows users, if you extracted the downloaded file to `c:\mongodb\` and you created `c:\mongodb\data\` then within `c:\mongodb\bin\mongodb.config` you would specify `dbpath=c:\mongodb\data\`. You could then launch `mongod` from a command prompt via `c:\mongodb\bin\mongod --config c:\mongodb\bin\mongodb.config`.
-
 Feel free to add the `bin` folder to your path to make all of this less verbose. MacOSX and Linux users can follow almost identical directions. The only thing you should have to change are the paths.
+
+For Windows users, choose the msi installer of MongoDB Community Edition and go ahead to install it with default options as shown below.
+
+![windows-installer](https://user-images.githubusercontent.com/6199709/190581648-7ce41b11-dbef-4662-8ae8-8036c3bc87e6.png)
+
+With these options selected, MongoDB will be installed as a Windows Service, and it will be started after the successful completion of installation. 
 
 Hopefully you now have MongoDB up and running. If you get an error, read the output carefully - the server is quite good at explaining what's wrong.
 
-You can now launch `mongo` (without the *d*) which will connect a shell to your running server. Try entering `db.version()` to make sure everything's working as it should. Hopefully you'll see the version number you installed.
+You can now launch `mongosh` which will connect a shell to your running server. Try entering `db.version()` to make sure everything's working as it should. Hopefully you'll see the version number you installed.
 
 # Chapter 1 - The Basics #
 We begin our journey by getting to know the basic mechanics of working with MongoDB. Obviously this is core to understanding MongoDB, but it should also help us answer higher-level questions about where MongoDB fits.
@@ -87,7 +91,7 @@ Why use new terminology (collection vs. table, document vs. row and field vs. co
 
 Although this is important to understand, don't worry if things aren't yet clear. It won't take more than a couple of inserts to see what this truly means. Ultimately, the point is that a collection isn't strict about what goes in it (it's schema-less). Fields are tracked with each individual document. The benefits and drawbacks of this will be explored in a future chapter.
 
-Let's get hands-on. If you don't have it running already, go ahead and start the `mongod` server as well as a mongo shell. The shell runs JavaScript. There are some global commands you can execute, like `help` or `exit`. Commands that you execute against the current database are executed against the `db` object, such as `db.help()` or `db.stats()`. Commands that you execute against a specific collection, which is what we'll be doing a lot of, are executed against the `db.COLLECTION_NAME` object, such as `db.unicorns.help()` or `db.unicorns.count()`.
+Let's get hands-on. If you don't have it running already, go ahead and start the `mongod` server as well as a mongo shell. The shell runs JavaScript. There are some global commands you can execute, like `help` or `exit`. Commands that you execute against the current database are executed against the `db` object, such as `db.help()` or `db.stats()`. Commands that you execute against a specific collection, which is what we'll be doing a lot of, are executed against the `db.COLLECTION_NAME` object, such as `db.unicorns.getIndices()` or `db.unicorns.countDocuments()`.
 
 Go ahead and enter `db.help()`, you'll get a list of commands that you can execute against the `db` object.
 
@@ -95,135 +99,148 @@ A small side note: Because this is a JavaScript shell, if you execute a method a
 
 First we'll use the global `use` helper to switch databases, so go ahead and enter `use learn`. It doesn't matter that the database doesn't really exist yet. The first collection that we create will also create the actual `learn` database. Now that you are inside a database, you can start issuing database commands, like `db.getCollectionNames()`. If you do so, you should get an empty array (`[ ]`). Since collections are schema-less, we don't explicitly need to create them. We can simply insert a document into a new collection. To do so, use the `insert` command, supplying it with the document to insert:
 
-	db.unicorns.insert({name: 'Aurora',
-		gender: 'f', weight: 450})
+```javascript
+db.unicorns.insert({name: 'Aurora', gender: 'f', weight: 450})
+```
 
 The above line is executing `insert` against the `unicorns` collection, passing it a single parameter. Internally MongoDB uses a binary serialized JSON format called BSON. Externally, this means that we use JSON a lot, as is the case with our parameters. If we execute `db.getCollectionNames()` now, we'll see a `unicorns` collection.
 
 You can now use the `find` command against `unicorns` to return a list of documents:
 
-	db.unicorns.find()
+```javascript
+db.unicorns.find()
+```
 
 Notice that, in addition to the data you specified, there's an `_id` field. Every document must have a unique `_id` field. You can either generate one yourself or let MongoDB generate a value for you which has the type `ObjectId`. Most of the time you'll probably want to let MongoDB generate it for you. By default, the `_id` field is indexed. You can verify this through the  `getIndexes` command:
 
-	db.unicorns.getIndexes()
+```javascript
+db.unicorns.getIndexes()
+```
 
 What you're seeing is the name of the index, the database and collection it was created against and the fields included in the index.
 
 Now, back to our discussion about schema-less collections. Insert a totally different document into `unicorns`, such as:
 
-	db.unicorns.insert({name: 'Leto',
-		gender: 'm',
-		home: 'Arrakeen',
-		worm: false})
+```javascript
+db.unicorns.insert({
+    name: 'Leto',
+    gender: 'm',
+    home: 'Arrakeen',
+    worm: false
+})
+```
 
 And, again use `find` to list the documents. Once we know a bit more, we'll discuss this interesting behavior of MongoDB, but hopefully you are starting to understand why the more traditional terminology wasn't a good fit.
 
 ## Mastering Selectors ##
 In addition to the six concepts we've explored, there's one practical aspect of MongoDB you need to have a good grasp of before moving to more advanced topics: query selectors. A MongoDB query selector is like the `where` clause of an SQL statement. As such, you use it when finding, counting, updating and removing documents from collections. A selector is a JSON object, the simplest of which is `{}` which matches all documents. If we wanted to find all female unicorns, we could use `{gender:'f'}`.
 
-Before delving too deeply into selectors, let's set up some data to play with. First, remove what we've put so far in the `unicorns` collection via: `db.unicorns.remove({})`. Now, issue the following inserts to get some data we can play with (I suggest you copy and paste this):
+Before delving too deeply into selectors, let's set up some data to play with. First, remove what we've put so far in the `unicorns` collection via: `db.unicorns.deleteMany({})`. Now, issue the following inserts to get some data we can play with (I suggest you copy and paste this):
 
-	db.unicorns.insert({name: 'Horny',
-		dob: new Date(1992,2,13,7,47),
-		loves: ['carrot','papaya'],
-		weight: 600,
-		gender: 'm',
-		vampires: 63});
-	db.unicorns.insert({name: 'Aurora',
-		dob: new Date(1991, 0, 24, 13, 0),
-		loves: ['carrot', 'grape'],
-		weight: 450,
-		gender: 'f',
-		vampires: 43});
-	db.unicorns.insert({name: 'Unicrom',
-		dob: new Date(1973, 1, 9, 22, 10),
-		loves: ['energon', 'redbull'],
-		weight: 984,
-		gender: 'm',
-		vampires: 182});
-	db.unicorns.insert({name: 'Roooooodles',
-		dob: new Date(1979, 7, 18, 18, 44),
-		loves: ['apple'],
-		weight: 575,
-		gender: 'm',
-		vampires: 99});
-	db.unicorns.insert({name: 'Solnara',
-		dob: new Date(1985, 6, 4, 2, 1),
-		loves:['apple', 'carrot',
-			'chocolate'],
-		weight:550,
-		gender:'f',
-		vampires:80});
-	db.unicorns.insert({name:'Ayna',
-		dob: new Date(1998, 2, 7, 8, 30),
-		loves: ['strawberry', 'lemon'],
-		weight: 733,
-		gender: 'f',
-		vampires: 40});
-	db.unicorns.insert({name:'Kenny',
-		dob: new Date(1997, 6, 1, 10, 42),
-		loves: ['grape', 'lemon'],
-		weight: 690,
-		gender: 'm',
-		vampires: 39});
-	db.unicorns.insert({name: 'Raleigh',
-		dob: new Date(2005, 4, 3, 0, 57),
-		loves: ['apple', 'sugar'],
-		weight: 421,
-		gender: 'm',
-		vampires: 2});
-	db.unicorns.insert({name: 'Leia',
-		dob: new Date(2001, 9, 8, 14, 53),
-		loves: ['apple', 'watermelon'],
-		weight: 601,
-		gender: 'f',
-		vampires: 33});
-	db.unicorns.insert({name: 'Pilot',
-		dob: new Date(1997, 2, 1, 5, 3),
-		loves: ['apple', 'watermelon'],
-		weight: 650,
-		gender: 'm',
-		vampires: 54});
-	db.unicorns.insert({name: 'Nimue',
-		dob: new Date(1999, 11, 20, 16, 15),
-		loves: ['grape', 'carrot'],
-		weight: 540,
-		gender: 'f'});
-	db.unicorns.insert({name: 'Dunx',
-		dob: new Date(1976, 6, 18, 18, 18),
-		loves: ['grape', 'watermelon'],
-		weight: 704,
-		gender: 'm',
-		vampires: 165});
+```javascript
+db.unicorns.insert({name: 'Horny',
+	dob: new Date(1992,2,13,7,47),
+	loves: ['carrot','papaya'],
+	weight: 600,
+	gender: 'm',
+	vampires: 63});
+db.unicorns.insert({name: 'Aurora',
+	dob: new Date(1991, 0, 24, 13, 0),
+	loves: ['carrot', 'grape'],
+	weight: 450,
+	gender: 'f',
+	vampires: 43});
+db.unicorns.insert({name: 'Unicrom',
+	dob: new Date(1973, 1, 9, 22, 10),
+	loves: ['energon', 'redbull'],
+	weight: 984,
+	gender: 'm',
+	vampires: 182});
+db.unicorns.insert({name: 'Roooooodles',
+	dob: new Date(1979, 7, 18, 18, 44),
+	loves: ['apple'],
+	weight: 575,
+	gender: 'm',
+	vampires: 99});
+db.unicorns.insert({name: 'Solnara',
+	dob: new Date(1985, 6, 4, 2, 1),
+	loves:['apple', 'carrot', 'chocolate'],
+	weight:550,
+	gender:'f',
+	vampires:80});
+db.unicorns.insert({name:'Ayna',
+	dob: new Date(1998, 2, 7, 8, 30),
+	loves: ['strawberry', 'lemon'],
+	weight: 733,
+	gender: 'f',
+	vampires: 40});
+db.unicorns.insert({name:'Kenny',
+	dob: new Date(1997, 6, 1, 10, 42),
+	loves: ['grape', 'lemon'],
+	weight: 690,
+	gender: 'm',
+	vampires: 39});
+db.unicorns.insert({name: 'Raleigh',
+	dob: new Date(2005, 4, 3, 0, 57),
+	loves: ['apple', 'sugar'],
+	weight: 421,
+	gender: 'm',
+	vampires: 2});
+db.unicorns.insert({name: 'Leia',
+	dob: new Date(2001, 9, 8, 14, 53),
+	loves: ['apple', 'watermelon'],
+	weight: 601,
+	gender: 'f',
+	vampires: 33});
+db.unicorns.insert({name: 'Pilot',
+	dob: new Date(1997, 2, 1, 5, 3),
+	loves: ['apple', 'watermelon'],
+	weight: 650,
+	gender: 'm',
+	vampires: 54});
+db.unicorns.insert({name: 'Nimue',
+	dob: new Date(1999, 11, 20, 16, 15),
+	loves: ['grape', 'carrot'],
+	weight: 540,
+	gender: 'f'});
+db.unicorns.insert({name: 'Dunx',
+	dob: new Date(1976, 6, 18, 18, 18),
+	loves: ['grape', 'watermelon'],
+	weight: 704,
+	gender: 'm',
+	vampires: 165});
+```
 
 Now that we have data, we can master selectors. `{field: value}` is used to find any documents where `field` is equal to `value`. `{field1: value1, field2: value2}` is how we do an `and` statement. The special `$lt`, `$lte`, `$gt`, `$gte` and `$ne` are used for less than, less than or equal, greater than, greater than or equal and not equal operations. For example, to get all male unicorns that weigh more than 700 pounds, we could do:
 
-	db.unicorns.find({gender: 'm',
-		weight: {$gt: 700}})
-	//or (not quite the same thing, but for
-	//demonstration purposes)
-	db.unicorns.find({gender: {$ne: 'f'},
-		weight: {$gte: 701}})
-
+```javascript
+db.unicorns.find({gender: 'm', weight: {$gt: 700}})
+//or (not quite the same thing, but for
+//demonstration purposes)
+db.unicorns.find({gender: {$ne: 'f'}, weight: {$gte: 701}})
+```
 
 The `$exists` operator is used for matching the presence or absence of a field, for example:
 
-	db.unicorns.find({
-		vampires: {$exists: false}})
+```javascript
+db.unicorns.find({vampires: {$exists: false}})
+```
 
 should return a single document. The '$in' operator is used for matching one of several values that we pass as an array, for example:
 
-    db.unicorns.find({
-    	loves: {$in:['apple','orange']}})
+```javascript
+db.unicorns.find({loves: {$in: ['apple','orange'] }})
+```
 
 This returns any unicorn who loves 'apple' or 'orange'.
 
 If we want to OR rather than AND several conditions on different fields, we use the `$or` operator and assign to it an array of selectors we want or'd:
 
-	db.unicorns.find({gender: 'f',
-		$or: [{loves: 'apple'},
-			  {weight: {$lt: 500}}]})
+```javascript
+db.unicorns.find({gender: 'f',
+    $or: [ {loves: 'apple'}, {weight: {$lt: 500}} ]
+})
+```
 
 The above will return all female unicorns which either love apples or weigh less than 500 pounds.
 
@@ -235,8 +252,9 @@ We've seen how these selectors can be used with the `find` command. They can als
 
 The `ObjectId` which MongoDB generated for our `_id` field can be selected like so:
 
-	db.unicorns.find(
-		{_id: ObjectId("TheObjectId")})
+```javascript
+db.unicorns.find({_id: ObjectId("TheObjectId")})
+```
 
 ## In This Chapter ##
 We haven't looked at the `update` command yet, or some of the fancier things we can do with `find`. However, we did get MongoDB up and running, looked briefly at the `insert` and `remove` commands (there isn't much more than what we've seen). We also introduced `find` and saw what MongoDB `selectors` were all about. We've had a good start and laid a solid foundation for things to come. Believe it or not, you actually know most of what you need to know to get started with MongoDB - it really is meant to be quick to learn and easy to use. I strongly urge you to play with your local copy before moving on. Insert different documents, possibly in new collections, and get familiar with different selectors. Use `find`, `count` and `remove`. After a few tries on your own, things that might have seemed awkward at first will hopefully fall into place.
@@ -247,43 +265,54 @@ In chapter 1 we introduced three of the four CRUD (create, read, update and dele
 ## Update: Replace Versus $set ##
 In its simplest form, `update` takes two parameters: the selector (where) to use and what updates to apply to fields. If Roooooodles had gained a bit of weight, you might expect that we should execute:
 
-	db.unicorns.update({name: 'Roooooodles'},
-		{weight: 590})
+```javascript
+db.unicorns.updateOne({name: 'Roooooodles'}, {weight: 590})
+```
 
 (If you've played with your `unicorns` collection and it doesn't have the original data anymore, go ahead and `remove` all documents and re-insert from the code in chapter 1.)
 
 Now, if we look at the updated record:
 
-	db.unicorns.find({name: 'Roooooodles'})
+```javascript
+db.unicorns.find({name: 'Roooooodles'})
+```
 
 You should discover the first surprise of `update`. No document is found because the second parameter we supplied didn't have any update operators, and therefore it was used to **replace** the original document. In other words, the `update` found a document by `name` and replaced the entire document with the new document (the second parameter). There is no equivalent functionality to this in SQL's `update` command. In some situations, this is ideal and can be leveraged for some truly dynamic updates. However, when you want to change the value of one, or a few fields, you must use MongoDB's `$set` operator. Go ahead and run this update to reset the lost fields:
 
-	db.unicorns.update({weight: 590}, {$set: {
-		name: 'Roooooodles',
-		dob: new Date(1979, 7, 18, 18, 44),
-		loves: ['apple'],
-		gender: 'm',
-		vampires: 99}})
+```javascript
+db.unicorns.updateOne({weight: 590}, {$set: {
+	name: 'Roooooodles',
+	dob: new Date(1979, 7, 18, 18, 44),
+	loves: ['apple'],
+	gender: 'm',
+	vampires: 99}
+})
+```
 
 This won't overwrite the new `weight` since we didn't specify it. Now if we execute:
 
-	db.unicorns.find({name: 'Roooooodles'})
+```javascript
+db.unicorns.find({name: 'Roooooodles'})
+```
 
 We get the expected result. Therefore, the correct way to have updated the weight in the first place is:
 
-	db.unicorns.update({name: 'Roooooodles'},
-		{$set: {weight: 590}})
+```javascript
+db.unicorns.updateOne({name: 'Roooooodles'}, {$set: {weight: 590}})
+```
 
 ## Update Operators ##
 In addition to `$set`, we can leverage other operators to do some nifty things. All update operators work on fields - so your entire document won't be wiped out. For example, the `$inc` operator is used to increment a field by a certain positive or negative amount. If Pilot was incorrectly awarded a couple vampire kills, we could correct the mistake by executing:
 
-	db.unicorns.update({name: 'Pilot'},
-		{$inc: {vampires: -2}})
+```javascript
+db.unicorns.update({name: 'Pilot'}, {$inc: {vampires: -2}})
+```
 
 If Aurora suddenly developed a sweet tooth, we could add a value to her `loves` field via the `$push` operator:
 
-	db.unicorns.update({name: 'Aurora'},
-		{$push: {loves: 'sugar'}})
+```javascript
+db.unicorns.update({name: 'Aurora'}, {$push: {loves: 'sugar'}})
+```
 
 The [Update Operators](http://docs.mongodb.org/manual/reference/operator/update/#update-operators) section of the MongoDB manual has more information on the other available update operators.
 
@@ -292,38 +321,42 @@ One of the more pleasant surprises of using `update` is that it fully supports `
 
 A mundane example is a hit counter for a website. If we wanted to keep an aggregate count in real time, we'd have to see if the record already existed for the page, and based on that decide to run an update or insert. With the upsert option omitted (or set to false), executing the following won't do anything:
 
-	db.hits.update({page: 'unicorns'},
-		{$inc: {hits: 1}});
-	db.hits.find();
+```javascript
+db.hits.update({page: 'unicorns'}, {$inc: {hits: 1}});
+db.hits.find();
+```
 
 However, if we add the upsert option, the results are quite different:
 
-	db.hits.update({page: 'unicorns'},
-		{$inc: {hits: 1}}, {upsert:true});
-	db.hits.find();
+```javascript
+db.hits.update({page: 'unicorns'}, {$inc: {hits: 1}}, {upsert:true});
+db.hits.find();
+```
 
 Since no documents exists with a field `page` equal to `unicorns`, a new document is inserted. If we execute it a second time, the existing document is updated and `hits` is incremented to 2.
 
-	db.hits.update({page: 'unicorns'},
-		{$inc: {hits: 1}}, {upsert:true});
-	db.hits.find();
+```javascript
+db.hits.update({page: 'unicorns'}, {$inc: {hits: 1}}, {upsert:true});
+db.hits.find();
+```
 
 ## Multiple Updates ##
 The final surprise `update` has to offer is that, by default, it'll update a single document. So far, for the examples we've looked at, this might seem logical. However, if you executed something like:
 
-	db.unicorns.update({},
-		{$set: {vaccinated: true }});
-	db.unicorns.find({vaccinated: true});
+```javascript
+db.unicorns.update({}, {$set: {vaccinated: true }});
+db.unicorns.find({vaccinated: true});
+```
 
-You might expect to find all of your precious unicorns to be vaccinated. To get the behavior you desire, the `multi` option must be set to true:
+You might expect to find all of your precious unicorns to be vaccinated. To get the behavior you desire, the `updateMany` command must be used:
 
-	db.unicorns.update({},
-		{$set: {vaccinated: true }},
-		{multi:true});
-	db.unicorns.find({vaccinated: true});
+```javascript
+db.unicorns.updateMany({}, {$set: {vaccinated: true }});
+db.unicorns.find({vaccinated: true});
+```
 
 ## In This Chapter ##
-This chapter concluded our introduction to the basic CRUD operations available against a collection. We looked at `update` in detail and observed three interesting behaviors. First, if you pass it a document without update operators, MongoDB's `update` will replace the existing document. Because of this, normally you will use the `$set` operator (or one of the many other available operators that modify the document). Secondly, `update` supports an intuitive `upsert` option which is particularly useful when you don't know if the document already exists. Finally, by default, `update` updates only the first matching document, so use the `multi` option when you want to update all matching documents.
+This chapter concluded our introduction to the basic CRUD operations available against a collection. We looked at `update` in detail and observed three interesting behaviors. First, if you pass it a document without update operators, MongoDB's `update` will replace the existing document. Because of this, normally you will use the `$set` operator (or one of the many other available operators that modify the document). Secondly, `update` supports an intuitive `upsert` option which is particularly useful when you don't know if the document already exists. Finally, by default, `update` updates only the first matching document, so use the `updateMany` command when you want to update all matching documents.
 
 # Chapter 3 - Mastering Find #
 Chapter 1 provided a superficial look at the `find` command. There's more to `find` than understanding `selectors` though. We already mentioned that the result from `find` is a `cursor`. We'll now look at exactly what this means in more detail.
