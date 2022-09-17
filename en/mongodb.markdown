@@ -609,27 +609,34 @@ Aggregation pipeline gives you a way to transform and combine documents in your 
 
 The simplest aggregation you are probably already familiar with is the SQL `group by` expression.  We already saw the simple `count()`  method, but what if we want to see how many unicorns are male and how many are female?  
 
-	db.unicorns.aggregate([{$group:{_id:'$gender',
-		total: {$sum:1}}}])
+```javascript
+db.unicorns.aggregate([ {$group: {_id: '$gender', total: {$sum: 1}} } ])
+```
 
 In the shell we have the `aggregate` helper which takes an array of pipeline operators.  For a simple count grouped by something, we only need one such operator and it's called `$group`.   This is the exact analog of `GROUP BY` in SQL where we create a new document with `_id` field indicating what field we are grouping by (here it's `gender`) and other fields usually getting assigned results of some aggregation, in this case we `$sum` 1 for each document that matches a particular gender.  You probably noticed that the `_id` field was assigned `'$gender'` and not `'gender'` - the `'$'` before a field name indicates that the value of this field from incoming document will be substituted.
 
 What are some of the other pipeline operators that we can use?  The most common one to use before (and frequently after) `$group` would be `$match` - this is exactly like the `find` method and it allows us to aggregate only a matching subset of our documents, or to exclude some documents from our result.
 
-	db.unicorns.aggregate([{$match: {weight:{$lt:600}}},
-		{$group: {_id:'$gender',  total:{$sum:1},
-		  avgVamp:{$avg:'$vampires'}}},
-		{$sort:{avgVamp:-1}} ])
+```javascript
+db.unicorns.aggregate([
+    { $match: {weight: {$lt: 600}} },
+    { $group: {_id: '$gender', total: {$sum: 1}, avgVamp: {$avg: '$vampires'}} },
+    { $sort: {avgVamp: -1} } 
+])
+```
 
 Here we introduced another pipeline operator `$sort` which does exactly what you would expect, along with it we also get `$skip` and `$limit`.  We also used a `$group` operator `$avg`.
 
 MongoDB arrays are powerful and they don't stop us from being able to aggregate on values that are stored inside of them.  We do need to be able to "flatten" them to properly count everything:
 
-	db.unicorns.aggregate([{$unwind:'$loves'},
-     	{$group: {_id:'$loves',  total:{$sum:1},
-	 	unicorns:{$addToSet:'$name'}}},
-	  	{$sort:{total:-1}},
-	  	{$limit:1} ])
+```javascript
+db.unicorns.aggregate([
+    { $unwind: '$loves' },
+    { $group: {_id: '$loves', total: {$sum: 1}, unicorns: {$addToSet: '$name'}} },
+    { $sort: {total: -1} },
+    { $limit: 1 }
+])
+```
 
 Here we will find out which food item is loved by the most unicorns and we will also get the list of names of all the unicorns that love it.  `$sort` and `$limit` in combination allow you to get answers to "top N" types of questions.
 
