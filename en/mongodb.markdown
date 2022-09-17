@@ -560,9 +560,10 @@ One area where MongoDB can fit a specialized role is in logging. There are two a
 
 In addition to these performance factors, log data is one of those data sets which can often take advantage of schema-less collections. Finally, MongoDB has something called a [capped collection](http://docs.mongodb.org/manual/core/capped-collections/). So far, all of the implicitly created collections we've created are just normal collections. We can create a capped collection by using the `db.createCollection` command and flagging it as capped:
 
-	//limit our capped collection to 1 megabyte
-	db.createCollection('logs', {capped: true,
-		size: 1048576})
+```javascript
+// limit our capped collection to 1 megabyte
+db.createCollection('logs', {capped: true, size: 1048576})
+```
 
 When our capped collection reaches its 1MB limit, old documents are automatically purged. A limit on the number of documents, rather than the size, can be set using `max`. Capped collections have some interesting properties. For example, you can update a document but it can't change in size. The insertion order is preserved, so you don't need to add an extra index to get proper time-based sorting.  You can "tail" a capped collection the way you tail a file in Unix via `tail -f <filename>` which allows you to get new data as it arrives, without having to re-query it.
 
